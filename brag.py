@@ -144,8 +144,11 @@ class User(object):
             if date == session.date:
                 return session
 
+    def name_and_email(self):
+        return self.name if not self.email else "{} <{}>".format(self.name, self.email)
+
     def to_string(self):
-        result = "# {}\n\n{}\n\n".format(self.name, self.goals)
+        result = "# {}\n\n{}\n\n".format(self.name_and_email(), self.goals)
         result += "\n\n".join(map(str, sorted(self.sessions)))
         return result
 
@@ -157,6 +160,11 @@ class Brag(object):
 
     def add_user(self, user):
         self.users.append(user)
+    
+    def get_user(self, username):
+        for user in self.users:
+            if user.name.lower() == username.lower():
+                return user
 
     def get_current_session(self):
         current_session = max(self.get_session_names())
