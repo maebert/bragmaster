@@ -64,7 +64,7 @@ class Task(object):
         return self.to_string()
 
     def to_string(self, simple=False):
-        if simple:
+        if simple and not self.status:
             result = "- {}".format(self.name)
         else:
             result = "- [{}] {}".format(self.status, self.name)
