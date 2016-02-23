@@ -50,14 +50,25 @@ class Task(object):
     def from_string(cls, line):
         line = line.replace("—", "--")  # Long dashes
         line, comment = line.split("--", 1) if "--" in line else (line, "")
-        status, name = re.match(r" *-? *\[(.)\] *(.+)", line).groups()
+        line = line.strip("- ")
+        if line.startswith("["):
+            status = Status(line[1].upper())
+            name = line[3:].strip()
+        else:
+            status = Status.incomplete
+            name = line
 
-        status = Status(status.upper())
-
-        return cls(name.strip(), status, comment.strip())
+        return cls(name, status, comment.strip())
 
     def __str__(self):
-        result = "- [{}] {}".format(self.status, self.name)
+        return self.to_string()
+
+    def to_string(self, simple=False):
+        if simple:
+            result = "- {}".format(self.name)
+        else:
+            result = "- [{}] {}".format(self.status, self.name)
+
         if self.comment:
             result += " -- " + self.comment
         return result
@@ -118,6 +129,11 @@ class Session(object):
                 self.tasks.append(task)
             else:
                 self.get_task(task.name).update(task)
+
+    def to_string(self, simple=False, title=True):
+        result = "## {}\n\n".format(self.name) if title else ""
+        result += "\n".join([task.to_string(simple=simple) for task in self.tasks])
+        return result
 
 
 class User(object):
@@ -191,9 +207,9 @@ class Brag(object):
         last_session = max(self.get_session_names())
         for user in self.users:
             result += "# {}\n\n".format(user.name)
-            result += str(user.goals.get_unfinished()) + "\n\n"
+            result += user.goals.get_unfinished().to_string(simple=True) + "\n\n"
             result += str(user.get_session(last_session)) + "\n\n"
-            result += "## {:%Y-%m-%d}\n\n- [ ] \n\n".format(datetime.now())
+            result += "## {:%Y-%m-%d}\n\n- ...\n\n".format(datetime.now())
             result += "-" * 60 + "\n\n"
         return result.strip()
 
