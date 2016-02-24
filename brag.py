@@ -12,6 +12,9 @@ import os
 import sys
 from datetime import datetime
 import argparse
+import tempfile
+import subprocess
+import shlex
 
 __author__ = "Manuel Ebert"
 __copyright__ = "Copyright 2016, Manuel Ebert"
@@ -20,10 +23,59 @@ __email__ = "manuel@1450.me"
 __version__ = "0.1.0"
 
 
+def parse_sections(text, separator):
+    """Separates a text into sections. For example,
+
+        # Header 1
+        Text
+        # Header 2
+        More text
+
+    can be separated into sections with get_sections(text, "^# ")
+
+    Args:
+      text: str
+      separator: regular expression
+    Returns:
+      generator
+    """
+    section_starts = [m.start() for m in re.finditer(separator, text, flags=re.MULTILINE)]
+    for start, end in zip(section_starts, section_starts[1:] + [len(text)]):
+        yield text[start:end]
+
+
+def get_text_from_editor(editor='vim', template=""):
+    """Opens an editor, prefills it with a template, and returns the edited text.
+
+    Args:
+        editor: str -- command to open the editor, eg. 'vim'
+        template: str
+    Returns:
+        str
+    """
+    filehandle, tmpfile = tempfile.mkstemp(prefix="brag", text=True, suffix=".md")
+    with open(tmpfile, 'w', encoding="utf-8") as f:
+        if template:
+            f.write(template)
+    subprocess.call(shlex.split(editor, posix="win" not in sys.platform) + [tmpfile])
+    with open(tmpfile, encoding="utf-8") as f:
+        result = f.read()
+    os.close(filehandle)
+    os.remove(tmpfile)
+    return result
+
+
 class Status(Enum):
     done = 'X'
     incomplete = ' '
     partial = 'O'
+
+    @classmethod
+    def from_string(cls, text):
+        if not text:
+            return cls(' ')
+        else:
+            return cls(text.upper())
 
     def __str__(self):
         return self.value
@@ -39,7 +91,7 @@ class Task(object):
 
     def __init__(self, name, status, comment):
         self.name = name
-        self.status = status
+        self.status = Status.from_string(status) if not isinstance(status, Status) else status
         self.comment = comment
 
     def update(self, other_task):
@@ -48,16 +100,7 @@ class Task(object):
 
     @classmethod
     def from_string(cls, line):
-        line = line.replace("—", "--")  # Long dashes
-        line, comment = line.split("--", 1) if "--" in line else (line, "")
-        line = line.strip("- ")
-        if line.startswith("["):
-            status = Status(line[1].upper())
-            name = line[3:].strip()
-        else:
-            status = Status.incomplete
-            name = line
-
+        status, name, comment = re.match("^ *(?:[-*]|[0-9]+\.) (?:\[(.)\] +)?(?:(.*(?= -- | — )|.*)(?: -- | — )?(.*))", line).groups()
         return cls(name, status, comment.strip())
 
     def __str__(self):
@@ -91,11 +134,8 @@ class Session(object):
 
     @classmethod
     def from_string(cls, section_string):
-        title, items = section_string.split("\n", 1)
-        items = map(Task.from_string,
-                    filter(lambda line: line.strip() and not line.strip().startswith("---"),
-                           items.strip().splitlines()))
-
+        title, items = section_string.strip("# ").split("\n", 1)
+        items = map(Task.from_string, re.findall(r"^ *(?:[-*]|[0-9]+\.) .*", items, re.MULTILINE))
         return Session(title, list(items))
 
     def __eq__(self, other):
@@ -182,20 +222,20 @@ class Brag(object):
             if user.name.lower() == username.lower():
                 return user
 
-    def get_current_session(self):
-        current_session = max(self.get_session_names())
-        return self.get_session(current_session)
+    @property
+    def current_session(self):
+        return max(self.get_session_names())
 
-    def get_last_session(self):
-        last_session = self.get_session_names()[-2]
-        return self.get_session(last_session)
+    @property
+    def last_session(self):
+        return self.get_session_names()[-2]
 
-    def get_session(self, date):
+    def session_to_string(self, date, title=True, simple=False):
         result = ""
         for user in self.users:
             user_session = user.get_session(date)
             if user_session:
-                result += "# {}\n\n{}\n\n".format(user.name, user_session)
+                result += "# {}\n\n{}\n\n".format(user.name, user_session.to_string(title=title, simple=simple))
         return result.strip()
 
     def get_all_sessions(self):
@@ -231,20 +271,14 @@ class Brag(object):
     @classmethod
     def from_string(cls, brag_string):
         brag = cls()
-        parts = re.split(r"^# ", brag_string, flags=re.MULTILINE)
-        for part in parts:
-            if not part:
-                continue
-            username, part = part.split("\n", 1)
+        for part in parse_sections(brag_string, r'^# '):
+            username, part = part.strip("# ").split("\n", 1)
             email = None
             if "<" in username:
                 username, email = re.match(r"([^<]+) +<([^>]+)>", username.strip()).groups()
-            sections = re.split(r"^## ", part, flags=re.MULTILINE)
             sessions = []
             goals = []
-            for section in sections:
-                if not section.strip():
-                    continue
+            for section in parse_sections(part, r'^## '):
                 session = Session.from_string(section)
                 if "goals" in session.name.lower():
                     goals = session
@@ -271,15 +305,28 @@ class Brag(object):
             f.write(self.get_all_sessions())
 
 if __name__ == "__main__":
-    commands = ['current', 'last', 'template', 'stats', 'users', 'update']
     brag_file = os.environ.get('BRAG_FILE', None)
+    commands = {
+        'current': "Displays this week's tasks",
+        'last': "Displays last week's tasks",
+        'stats': "Displays some statistics",
+        'users': "Displays all users and their email addresses",
+        'run': "Runs a brag session by opening the editor with a template"
+    }
 
-    parser = argparse.ArgumentParser(description='Business Re-Evaluation and Enhancement Group helper')
-    parser.add_argument('command', help='Command to run', metavar='COMMAND', choices=commands)
-    parser.add_argument('-f', '--file', default=brag_file, help='Path to brag file', required=not brag_file)
-    parser.add_argument('-w', '--write', action='store_true', help='Update brag file')
-    parser.add_argument('-u', '--users', help='Filter by users, separate multiple users with commas.')
-    parser.add_argument('-i', '--input', help='Input file')
+    command_descriptions = '\n'.join(["  {} - {}".format(k, v) for k, v in commands.items()])
+
+    parser = argparse.ArgumentParser(
+        prog='brag',
+        usage='%(prog)s COMMAND [options]',
+        description="""Business Re-Evaluation and Enhancement Group helper. Available commands are: \n\n""" + command_descriptions,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument('command', help='command to run', metavar='COMMAND', choices=commands.keys())
+    parser.add_argument('-f', dest='file', default=brag_file, help='path to brag file', required=not brag_file)
+    parser.add_argument('-e', dest='editor', default='vim', help='editor to use for running brag')
+    parser.add_argument('-u', dest='users', help='filter by users, separate multiple users with commas.')
+    parser.add_argument('-i', dest='input', help='input file')
     args = parser.parse_args()
 
     brag = Brag.from_file(args.file)
@@ -289,20 +336,21 @@ if __name__ == "__main__":
         brag.users = [u for u in brag.users if u.name.lower() in usernames]
 
     if args.command == "current":
-        print(brag.get_current_session())
+        print(brag.session_to_string(
+            brag.current_session,
+            title=False, simple=True)
+        )
     if args.command == "last":
-        print(brag.get_last_session())
-    elif args.command == "template":
-        print(brag.get_session_template())
+        print(brag.session_to_string(brag.last_session, title=False))
     elif args.command == "users":
         print(", ".join(map(str, brag.users)))
-    elif args.command == "update":
-        if args.input:
-            new_brag = Brag.from_file(args.input)
-        else:
-            new_brag = Brag.from_string(sys.stdin.read())
-        brag.update(new_brag)
-        if args.write:
-            brag.write()
-        else:
-            print(brag.get_all_sessions())
+    elif args.command == "run":
+        new_brag = get_text_from_editor(
+            editor=args.editor,
+            template=brag.get_session_template()
+        )
+        new_brag = Brag.from_string(new_brag)
+
+        brag_with_all_users = Brag.from_file(args.file)
+        brag_with_all_users.update(new_brag)
+        brag_with_all_users.write()

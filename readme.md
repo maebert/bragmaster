@@ -31,29 +31,21 @@ You either need to set the or supply a file with `-f path_to_brag_file` every ti
 - `brag.py users`: Print all users and their e-mail addresses
 - `brag.py current`: Print current tasks for everybody
 - `brag.py last`: Print tasks for last brag for everybody
-- `brag.py template`: Prints a template for running a BRAG session
-- `brag.py update`: Update your brag file. Either specify a new bragfile with `-i filename` or pipe input into `brag.py`. Only new or changed tasks (change the status or add a comment) will be updated. 
+- `brag.py run`: Runs a brag session
 
 Options:
 - `-f path_to_brag_file` is required if you haven't set the  `$BRAG_FILE` environment variable (recommended)
 - `-u name[,other_name]` limits the output to certain users
-- `-w` write the output to the brag file. Only used for the `update` command.
 
-## Updating a brag
+## Running a brag session
 
-The intended use is to use `brag.py template` to generate a template, and then update your brag file from that template. This snippet will open an editor with the  and automatically update the brag file, assuming `$BRAG_FILE` is set.
-
-```sh
-#!/bin/bash
-tmpfile=$(mktemp /tmp/brag.XXXXXX)
-brag.py template > $tmpfile
-open -b pro.writer.mac -Wn $tmpfile
-brag.py update -w < $tmpfile
-rm $tmpfile
+```
+brag.py run
 ```
 
-In this case, we use IA Writer (`open -b pro.writer.mac -Wn`). To use another editor, change this line to e.g.
+You can specify the editor with the `-e` option, e.g.
 
+- IA Writer: `open -b pro.writer.mac -Wn`
 - Sublime Text: `subl -w` (the `-w` flag prevents waits for the window to be closed before the script continues)
 - vim: `vim`
 
