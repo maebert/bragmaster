@@ -408,19 +408,17 @@ class Brag(object):
         """
         brag = cls()
         for part in parse_sections(brag_string, r'^# '):
-            username, part = part.strip("# ").split("\n", 1)
-            email = None
-            if "<" in username:
-                username, email = re.match(r"([^<]+) +<([^>]+)>", username.strip()).groups()
+            header, rest = part.split("\n", 1)
+            username, email = re.match(r"[# ]*([^<]+)(?: *<)?([^>]+)?(?:> *)?", header).groups()
             sessions = []
-            goals = []
-            for section in parse_sections(part, r'^## '):
+            goals = None
+            for section in parse_sections(rest, r'^## '):
                 session = Session.from_string(section)
                 if "goals" in session.name.lower():
                     goals = session
                 else:
                     sessions.append(session)
-            brag.add_user(User(username, goals, sessions, email))
+            brag.add_user(User(username.strip(), goals, sessions, email))
         return brag
 
     def update(self, other_brag):
