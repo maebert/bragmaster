@@ -130,7 +130,12 @@ class Task(object):
         2. ???
         * Profit!!!
         """
-        status, name, comment = re.match("^ *(?:[-*]|[0-9]+\.) (?:\[(.)\] +)?(?:(.*(?= -- | — )|.*)(?: -- | — )?(.*))", line).groups()
+        try:
+            status, name, comment = re.match("^ *(?:[-*]|[0-9]+\.) (?:\[(.)\] +)?(?:(.*(?= -- | — )|.*)(?: -- | — )?(.*))", line).groups()
+        except:
+            return None
+        if name == "...":
+            return None
         return cls(name, status, comment.strip())
 
     def __str__(self):
@@ -181,7 +186,15 @@ class Session(object):
         The first line should contain the session name, subsequent lines a list of tasks.
         """
         title, items = section_string.strip("# ").split("\n", 1)
-        items = map(Task.from_string, re.findall(r"^ *(?:[-*]|[0-9]+\.) .*", items, re.MULTILINE))
+        items = filter(
+            lambda i: i is not None,
+            map(
+                Task.from_string,
+                re.findall(r"^ *(?:[-*]|[0-9]+\.) .*", items, re.MULTILINE)
+            )
+        )
+        if not items:
+            return None
         return Session(title, list(items))
 
     def __eq__(self, other):
@@ -324,11 +337,15 @@ class Brag(object):
     @property
     def current_session(self):
         """Returns the current (ongoing) session"""
-        return max(self.get_session_dates())
+        if not self.get_session_dates():
+            return None
+        return self.get_session_dates()[-1]
 
     @property
     def last_session(self):
         """Returns the last (completed) session"""
+        if not self.get_session_dates():
+            return None
         return self.get_session_dates()[-2]
 
     def session_to_string(self, date, title=True, simple=False):
@@ -394,7 +411,8 @@ class Brag(object):
         Returns:
             Brag
         """
-        with open(os.path.expanduser(filename), encoding='utf-8') as f:
+        filename = os.path.expanduser(filename)
+        with open(filename, encoding='utf-8') as f:
             brag = cls.from_string(f.read())
         brag.filename = filename
         return brag
@@ -416,7 +434,7 @@ class Brag(object):
                 session = Session.from_string(section)
                 if "goals" in session.name.lower():
                     goals = session
-                else:
+                elif session:
                     sessions.append(session)
             brag.add_user(User(username.strip(), goals, sessions, email))
         return brag
@@ -470,6 +488,10 @@ if __name__ == "__main__":
     if args.users:
         usernames = args.users.lower().split(",")
         brag.users = [u for u in brag.users if u.name.lower() in usernames]
+        brag_usernames = [u.name.lower() for u in brag.users]
+        for username in usernames:
+            if username not in brag_usernames:
+                print("\033[93mUser '{}' not found.\033[0m".format(username))
 
     if args.command == "current":
         print(brag.session_to_string(
