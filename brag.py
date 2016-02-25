@@ -5,6 +5,7 @@ BragMaster 3000
 """
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import division
 
 from enum import Enum
 import re
@@ -66,47 +67,84 @@ def get_text_from_editor(editor='vim', template=""):
 
 
 class Status(Enum):
+    """Status of a task"""
+
     done = 'X'
     incomplete = ' '
     partial = 'O'
 
     @classmethod
     def from_string(cls, text):
+        """Generates a new staus from a string ('x', 'o', or ' ')"""
         if not text:
             return cls(' ')
         else:
             return cls(text.upper())
 
     def __str__(self):
+        """Returns the symbol for the status"""
         return self.value
 
     def __bool__(self):
-        return self.value != ' '
+        """Returns True if the status is not incomplete."""
+        return self.value != Status.incomplete
 
 
 class Task(object):
+    """Task object"""
+
     DONE = 1
     INCOMPLETE = 0
     PARTIAL = 2
 
-    def __init__(self, name, status, comment):
+    def __init__(self, name, status, comment=""):
+        """Initialises the task.
+
+        Args:
+            name: str
+            status: str or Status
+            comment: str
+        """
         self.name = name
         self.status = Status.from_string(status) if not isinstance(status, Status) else status
         self.comment = comment
 
+    def __bool__(self):
+        """Returns true if the task is completed."""
+        return self.status == Status.done
+
     def update(self, other_task):
+        """Updates the comment and status from another task."""
         self.status = other_task.status
         self.comment = other_task.comment
 
     @classmethod
     def from_string(cls, line):
+        """Parse a string and return the status. Examples:
+
+        - [X] Wear underwear
+        - [ ] Wear pants
+        - [O] Wear socks -- Didn't match, but ok
+        - Pretend being adult
+        1. [X] Collect socks
+        2. ???
+        * Profit!!!
+        """
         status, name, comment = re.match("^ *(?:[-*]|[0-9]+\.) (?:\[(.)\] +)?(?:(.*(?= -- | — )|.*)(?: -- | — )?(.*))", line).groups()
         return cls(name, status, comment.strip())
 
     def __str__(self):
+        """Returns a Markdown list item representation of the task."""
         return self.to_string()
 
     def to_string(self, simple=False):
+        """Returns a Markdown list item representation of the task.
+
+        Args:
+            simple: bool -- If True, omits checkboxes for unfinished tasks
+        Returns:
+            str
+        """
         if simple and not self.status:
             result = "- {}".format(self.name)
         else:
@@ -117,14 +155,19 @@ class Task(object):
         return result
 
     def __repr__(self):
+        """Returns a string representation of the task."""
         return "<[{}] {}>".format(self.status, self.name)
 
     def __eq__(self, other):
+        """True if names match"""
         return self.name == other.name
 
 
 class Session(object):
+    """Session object. Contains task."""
+
     def __init__(self, name, tasks=None):
+        """Initialises the session with a name and task list."""
         try:
             self.date = datetime.strptime(name.strip(), "%Y-%m-%d")
         except:
@@ -134,36 +177,51 @@ class Session(object):
 
     @classmethod
     def from_string(cls, section_string):
+        """Parses the session from a markdown string.
+        The first line should contain the session name, subsequent lines a list of tasks.
+        """
         title, items = section_string.strip("# ").split("\n", 1)
         items = map(Task.from_string, re.findall(r"^ *(?:[-*]|[0-9]+\.) .*", items, re.MULTILINE))
         return Session(title, list(items))
 
     def __eq__(self, other):
+        """True if names match"""
         if not isinstance(other, self.__class__):
             return False
         return self.name == other.name
 
     def __lt__(self, other):
+        """Compares the date of session."""
         if not self.date or not other.date:
             return False
         return self.date < other.date
 
     def __str__(self):
+        """Returns a Markdown representation of the session."""
         tasks = "\n".join(map(str, self.tasks))
         return "## {}\n\n{}".format(self.name, tasks)
 
+    def __len__(self):
+        """Returns the number of tasks in this session."""
+        return len(self.tasks)
+
     def get_unfinished(self):
+        """Returns a new session with only the unfinished tasks of this session."""
         return Session(self.name, filter(bool, self.tasks))
 
     def __iter__(self):
-        yield from self.tasks
+        """Returns a generator that yields tasks."""
+        for task in self.tasks:
+            yield task
 
     def get_task(self, name):
+        """Finds a task by name"""
         for task in self:
             if task.name == name:
                 return task
 
     def update(self, other_session):
+        """Updates or adds new tasks from another session."""
         for task in other_session:
             if task not in self:
                 self.tasks.append(task)
@@ -171,66 +229,118 @@ class Session(object):
                 self.get_task(task.name).update(task)
 
     def to_string(self, simple=False, title=True):
+        """Returns a Markdown representatino of the session.
+
+        Args:
+            title: bool -- If True, include header for this session
+            simple: bool -- If True, omits checkboxes for unfinished tasks
+        Returns:
+            str
+        """
         result = "## {}\n\n".format(self.name) if title else ""
         result += "\n".join([task.to_string(simple=simple) for task in self.tasks])
         return result
 
 
 class User(object):
+    """User Object"""
+
     def __init__(self, name, goals, sessions, email=None):
+        """Initialises a new user."""
         self.name = name
         self.goals = goals
         self.sessions = sessions
         self.email = email
 
     def __str__(self):
+        """Returns a string representation of the user and their email."""
         return "{} <{}>".format(self.name, self.email or "")
 
     def __eq__(self, other):
+        """True if names match"""
         return self.name.lower() == other.name.lower()
 
     def get_last_session(self):
+        """Returns the last (completed) session."""
         return sorted(self.sessions)[-2]
 
     def get_current_session(self):
+        """Returns the current (ongoing) session."""
         return sorted(self.sessions)[-1]
 
     def get_session(self, date):
+        """Finds a session by date."""
         for session in self.sessions:
             if date == session.date:
                 return session
 
     def name_and_email(self):
+        """Returns a string representation of the user's name and email (if available)"""
         return self.name if not self.email else "{} <{}>".format(self.name, self.email)
 
     def to_string(self):
+        """Returns a Markdown representation of all of the user's sessions."""
         result = "# {}\n\n{}\n\n".format(self.name_and_email(), self.goals)
         result += "\n\n".join(map(str, sorted(self.sessions)))
         return result
 
+    def stats(self):
+        """Returns statistics on the user.
+
+        Returns:
+            dict
+        """
+        tasks_completed = sum([len([t for t in session if t]) for session in self.sessions])
+        tasks_missed = sum([len([t for t in session if not t]) for session in self.sessions[:-1]])
+        return {
+            'Sessions': len(self.sessions),
+            'Goals completed': len([t for t in self.goals if t]),
+            'Total tasks': sum([len(session) for session in self.sessions]),
+            'Tasks in progress': len(self.sessions[-1]),
+            'Tasks completed': tasks_completed,
+            'Tasks missed': tasks_missed,
+            'Ratio': tasks_completed / (tasks_completed + tasks_missed)
+        }
+
 
 class Brag(object):
+    """Brag object. Contains users, each having goals and sessions, each session containing tasks."""
+
     def __init__(self):
+        """Initialises the Brag."""
         self.users = []
         self.filename = None
 
     def add_user(self, user):
+        """Adds a new user to the Brag"""
         self.users.append(user)
-    
+
     def get_user(self, username):
+        """Finds a user by their name."""
         for user in self.users:
             if user.name.lower() == username.lower():
                 return user
 
     @property
     def current_session(self):
-        return max(self.get_session_names())
+        """Returns the current (ongoing) session"""
+        return max(self.get_session_dates())
 
     @property
     def last_session(self):
-        return self.get_session_names()[-2]
+        """Returns the last (completed) session"""
+        return self.get_session_dates()[-2]
 
     def session_to_string(self, date, title=True, simple=False):
+        """Turns a single session into markdown
+
+        Args:
+            date: datetime -- Session date
+            title: bool -- If True, include header for this session
+            simple: bool -- If True, omits checkboxes for unfinished tasks
+        Returns:
+            str
+        """
         result = ""
         for user in self.users:
             user_session = user.get_session(date)
@@ -238,13 +348,25 @@ class Brag(object):
                 result += "# {}\n\n{}\n\n".format(user.name, user_session.to_string(title=title, simple=simple))
         return result.strip()
 
-    def get_all_sessions(self):
+    def to_string(self):
+        """Returns a markdown file for this Brag
+
+        Returns:
+            str
+        """
         sep = "\n\n" + "-" * 60 + "\n\n"
         return sep.join([u.to_string() for u in self.users])
 
     def get_session_template(self):
+        """Generates a template with which the Brag can be updated.
+        For each user, list their goals, last session's tasks, and a stub
+        for the current session.
+
+        Returns:
+            str
+        """
         result = ""
-        last_session = max(self.get_session_names())
+        last_session = max(self.get_session_dates())
         for user in self.users:
             result += "# {}\n\n".format(user.name)
             result += user.goals.get_unfinished().to_string(simple=True) + "\n\n"
@@ -253,7 +375,12 @@ class Brag(object):
             result += "-" * 60 + "\n\n"
         return result.strip()
 
-    def get_session_names(self):
+    def get_session_dates(self):
+        """Returns the dates of all sessions.
+
+        Returns:
+            list -- list of dates.
+        """
         sessions = set()
         for user in self.users:
             for session in user.sessions:
@@ -262,7 +389,11 @@ class Brag(object):
 
     @classmethod
     def from_file(cls, filename):
-        # Parse file
+        """Parses a markdown file into a brag.
+
+        Returns:
+            Brag
+        """
         with open(os.path.expanduser(filename), encoding='utf-8') as f:
             brag = cls.from_string(f.read())
         brag.filename = filename
@@ -270,6 +401,11 @@ class Brag(object):
 
     @classmethod
     def from_string(cls, brag_string):
+        """Parses a markdown string into a brag.
+
+        Returns:
+            Brag
+        """
         brag = cls()
         for part in parse_sections(brag_string, r'^# '):
             username, part = part.strip("# ").split("\n", 1)
@@ -288,6 +424,7 @@ class Brag(object):
         return brag
 
     def update(self, other_brag):
+        """Updates from another brag."""
         for other_user in other_brag.users:
             if other_user not in self.users:
                 self.add_user(other_user)
@@ -301,8 +438,9 @@ class Brag(object):
                         my_user.get_session(session.date).update(session)
 
     def write(self):
+        """Saves the brag to file."""
         with open(self.filename, 'w', encoding='utf-8') as f:
-            f.write(self.get_all_sessions())
+            f.write(self.to_string())
 
 if __name__ == "__main__":
     brag_file = os.environ.get('BRAG_FILE', None)
@@ -342,8 +480,27 @@ if __name__ == "__main__":
         )
     if args.command == "last":
         print(brag.session_to_string(brag.last_session, title=False))
+
     elif args.command == "users":
         print(", ".join(map(str, brag.users)))
+
+    elif args.command == "stats":
+        usernames = [user.name for user in brag.users]
+        username_lengths = map(len, usernames)
+        user_stats = [user.stats() for user in brag.users]
+        keys = user_stats[0].keys()
+        longest_key = max(map(len, keys))
+        print("{} {}  Total".format(" " * longest_key, "  ".join(usernames)))
+        zipped = list(zip(user_stats, username_lengths))
+        for key in sorted(keys):
+            total = sum(stats[key] for stats in user_stats)
+            frmt = "{:{}.0%}" if key == "Ratio" else "{:>{}}"
+            if key == "Ratio":
+                total = total / len(brag.users)
+            formatted_stats = "  ".join([frmt.format(stats[key], length) for stats, length in zipped])
+            formatted_stats += frmt.format(total, 7)
+            print("{:{}} {}".format(key, longest_key, formatted_stats))
+
     elif args.command == "run":
         new_brag = get_text_from_editor(
             editor=args.editor,

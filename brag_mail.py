@@ -45,7 +45,7 @@ def send_tasks(user, session, mandrill_client, dry_run=False):
         'from_email': 'manuel@1450.me',
         'from_name': 'Manuel Ebert',
         'text': TEMPLATE.format(username=user.name, tasks=tasks),
-        'subject': "Brag reminder - Session {}".format(len(brag.get_session_names())),
+        'subject': "Brag reminder - Session {}".format(len(brag.get_session_dates())),
         'to': [{'email': user.email,
                 'name': user.name,
                 'type': 'to'}]
@@ -79,8 +79,8 @@ if __name__ == "__main__":
         brag.users = [u for u in brag.users if u.name.lower() in usernames]
 
     mandrill_client = mandrill.Mandrill(args.mandrill_key)
-    current_session = max(brag.get_session_names())
+    current_session = max(brag.get_session_dates())
 
-    print("Sending 'Brag reminder - Session {}'".format(len(brag.get_session_names())))
+    print("Sending 'Brag reminder - Session {}'".format(len(brag.get_session_dates())))
     for user in brag.users:
         send_tasks(user, current_session, mandrill_client, dry_run=args.dry_run)
