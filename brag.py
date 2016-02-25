@@ -207,7 +207,7 @@ class Session(object):
 
     def get_unfinished(self):
         """Returns a new session with only the unfinished tasks of this session."""
-        return Session(self.name, filter(bool, self.tasks))
+        return Session(self.name, filter(lambda t: not t, self.tasks))
 
     def __iter__(self):
         """Returns a generator that yields tasks."""
