@@ -87,7 +87,7 @@ class Status(Enum):
 
     def __bool__(self):
         """Returns True if the status is not incomplete."""
-        return self.value != Status.incomplete
+        return self.value != ' '
 
 
 class Task(object):
@@ -343,9 +343,9 @@ class Brag(object):
         """
         result = ""
         for user in self.users:
-            user_session = user.get_session(date)
-            if user_session:
-                result += "# {}\n\n{}\n\n".format(user.name, user_session.to_string(title=title, simple=simple))
+            session = user.get_session(date)
+            if session:
+                result += "# {}\n\n{}\n\n".format(user.name, session.to_string(title=title, simple=simple))
         return result.strip()
 
     def to_string(self):
