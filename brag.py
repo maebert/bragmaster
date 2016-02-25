@@ -460,6 +460,7 @@ class Brag(object):
 
 if __name__ == "__main__":
     brag_file = os.environ.get('BRAG_FILE', None)
+    brag_editor = os.environ.get('BRAG_EDITOR', 'vim')
     commands = {
         'current': "Displays this week's tasks",
         'last': "Displays last week's tasks",
@@ -478,7 +479,7 @@ if __name__ == "__main__":
     )
     parser.add_argument('command', help='command to run', metavar='COMMAND', choices=commands.keys())
     parser.add_argument('-f', dest='file', default=brag_file, help='path to brag file', required=not brag_file)
-    parser.add_argument('-e', dest='editor', default='vim', help='editor to use for running brag')
+    parser.add_argument('-e', dest='editor', default=brag_editor, help='editor to use for running brag')
     parser.add_argument('-u', dest='users', help='filter by users, separate multiple users with commas.')
     parser.add_argument('-i', dest='input', help='input file')
     args = parser.parse_args()

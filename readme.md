@@ -43,7 +43,7 @@ Options:
 brag.py run
 ```
 
-You can specify the editor with the `-e` option, e.g.
+You can specify the editor with the `-e` option or setting the `$BRAG_EDITOR` environment variable, e.g.
 
 - IA Writer: `open -b pro.writer.mac -Wn`
 - Sublime Text: `subl -w` (the `-w` flag prevents waits for the window to be closed before the script continues)
