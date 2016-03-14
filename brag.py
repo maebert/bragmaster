@@ -79,7 +79,8 @@ class Status(Enum):
         if not text:
             return cls(' ')
         else:
-            return cls(text.upper())
+            text.upper().replace('0', 'O')
+            return cls(text)
 
     def __str__(self):
         """Returns the symbol for the status"""
@@ -446,7 +447,8 @@ class Brag(object):
                 self.add_user(other_user)
             else:
                 my_user = self.users[self.users.index(other_user)]
-                my_user.goals.update(other_user.goals)
+                if other_user.goals:
+                    my_user.goals.update(other_user.goals)
                 for session in other_user.sessions:
                     if session not in my_user.sessions:
                         my_user.sessions.append(session)
