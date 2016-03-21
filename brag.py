@@ -79,7 +79,7 @@ class Status(Enum):
         if not text:
             return cls(' ')
         else:
-            text.upper().replace('0', 'O')
+            text = text.upper().replace('0', 'O')
             return cls(text)
 
     def __str__(self):
@@ -259,12 +259,13 @@ class Session(object):
 class User(object):
     """User Object"""
 
-    def __init__(self, name, goals, sessions, email=None):
+    def __init__(self, name, goals, sessions, email=None, active=True):
         """Initialises a new user."""
         self.name = name
         self.goals = goals
         self.sessions = sessions
         self.email = email
+        self.active = active
 
     def __str__(self):
         """Returns a string representation of the user and their email."""
@@ -313,7 +314,7 @@ class User(object):
             'Tasks in progress': len(self.sessions[-1]),
             'Tasks completed': tasks_completed,
             'Tasks missed': tasks_missed,
-            'Ratio': tasks_completed / (tasks_completed + tasks_missed)
+            'Ratio': 0 if tasks_completed + tasks_missed == 0 else tasks_completed / (tasks_completed + tasks_missed)
         }
 
 
@@ -341,6 +342,13 @@ class Brag(object):
         if not self.get_session_dates():
             return None
         return self.get_session_dates()[-1]
+
+    @property
+    def active_users(self):
+        """Generator of active users."""
+        for user in self.users:
+            if user.active:
+                yield user
 
     @property
     def last_session(self):
@@ -385,7 +393,7 @@ class Brag(object):
         """
         result = ""
         last_session = max(self.get_session_dates())
-        for user in self.users:
+        for user in self.active_users:
             result += "# {}\n\n".format(user.name)
             result += user.goals.get_unfinished().to_string(simple=True) + "\n\n"
             result += str(user.get_session(last_session)) + "\n\n"
@@ -428,7 +436,7 @@ class Brag(object):
         brag = cls()
         for part in parse_sections(brag_string, r'^# '):
             header, rest = part.split("\n", 1)
-            username, email = re.match(r"[# ]*([^<]+)(?: *<)?([^>]+)?(?:> *)?", header).groups()
+            username, email, inactive = re.match(r"[# ]*([^<]+)(?: *<)?([^>]+)?(?:> *)?(\(inactive\))?", header).groups()
             sessions = []
             goals = None
             for section in parse_sections(rest, r'^## '):
@@ -437,7 +445,7 @@ class Brag(object):
                     goals = session
                 elif session:
                     sessions.append(session)
-            brag.add_user(User(username.strip(), goals, sessions, email))
+            brag.add_user(User(username.strip(), goals, sessions, email, active=not inactive))
         return brag
 
     def update(self, other_brag):
@@ -505,12 +513,12 @@ if __name__ == "__main__":
         print(brag.session_to_string(brag.last_session, title=False))
 
     elif args.command == "users":
-        print(", ".join(map(str, brag.users)))
+        print(", ".join(map(str, brag.active_users)))
 
     elif args.command == "stats":
-        usernames = [user.name for user in brag.users]
+        usernames = [user.name for user in brag.active_users]
         username_lengths = map(len, usernames)
-        user_stats = [user.stats() for user in brag.users]
+        user_stats = [user.stats() for user in brag.active_users]
         keys = user_stats[0].keys()
         longest_key = max(map(len, keys))
         print("{} {}  Total".format(" " * longest_key, "  ".join(usernames)))
@@ -519,7 +527,7 @@ if __name__ == "__main__":
             total = sum(stats[key] for stats in user_stats)
             frmt = "{:{}.0%}" if key == "Ratio" else "{:>{}}"
             if key == "Ratio":
-                total = total / len(brag.users)
+                total = total / len(brag.active_users)
             formatted_stats = "  ".join([frmt.format(stats[key], length) for stats, length in zipped])
             formatted_stats += frmt.format(total, 7)
             print("{:{}} {}".format(key, longest_key, formatted_stats))

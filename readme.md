@@ -70,3 +70,12 @@ I recommend creating a crontab to do this automatically every Thursday at 9am:
 0 9 * * 4 brag_mail.py -k YOUR_API_KEY -f YOUR_BRAG_FILE
 ```
 
+## Managing Users
+
+You can add `(inactive)` to the username in your brag file to keep them from showing up in `brag stats` and `brag run` like this:
+
+```
+# Manuel <manuel@1450.me> (inactive)
+```
+
+
