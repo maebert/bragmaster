@@ -259,10 +259,11 @@ class Session(object):
 class User(object):
     """User Object"""
 
-    def __init__(self, name, goals, sessions, email=None, active=True):
+    def __init__(self, name, goals, recurring, sessions, email=None, active=True):
         """Initialises a new user."""
         self.name = name
         self.goals = goals
+        self.recurring = recurring
         self.sessions = sessions
         self.email = email
         self.active = active
@@ -397,8 +398,11 @@ class Brag(object):
             result += "# {}\n\n".format(user.name)
             result += user.goals.get_unfinished().to_string(simple=True) + "\n\n"
             result += str(user.get_session(last_session)) + "\n\n"
-            result += "## {:%Y-%m-%d}\n\n- ...\n\n".format(datetime.now())
-            result += "-" * 60 + "\n\n"
+            result += "## {:%Y-%m-%d}\n\n".format(datetime.now())
+            if user.recurring:
+                result += user.recurring.to_string(simple=True, title=False) + "\n"
+            result += "- ...\n\n" + "-" * 60 + "\n\n"
+
         return result.strip()
 
     def get_session_dates(self):
@@ -438,14 +442,16 @@ class Brag(object):
             header, rest = part.split("\n", 1)
             username, email, inactive = re.match(r"[# ]*([^<]+)(?: *<)?([^>]+)?(?:> *)?(\(inactive\))?", header).groups()
             sessions = []
-            goals = None
+            goals, recurring = None, None
             for section in parse_sections(rest, r'^## '):
                 session = Session.from_string(section)
                 if "goals" in session.name.lower():
                     goals = session
+                elif "recurring" in session.name.lower():
+                    recurring = session
                 elif session:
                     sessions.append(session)
-            brag.add_user(User(username.strip(), goals, sessions, email, active=not inactive))
+            brag.add_user(User(username.strip(), goals, recurring, sessions, email, active=not inactive))
         return brag
 
     def update(self, other_brag):
@@ -476,7 +482,8 @@ if __name__ == "__main__":
         'last': "Displays last week's tasks",
         'stats': "Displays some statistics",
         'users': "Displays all users and their email addresses",
-        'run': "Runs a brag session by opening the editor with a template"
+        'run': "Runs a brag session by opening the editor with a template",
+        'debug': "Random effects"
     }
 
     command_descriptions = '\n'.join(["  {} - {}".format(k, v) for k, v in commands.items()])
@@ -527,10 +534,13 @@ if __name__ == "__main__":
             total = sum(stats[key] for stats in user_stats)
             frmt = "{:{}.0%}" if key == "Ratio" else "{:>{}}"
             if key == "Ratio":
-                total = total / len(brag.active_users)
+                total = total / len(list(brag.active_users))
             formatted_stats = "  ".join([frmt.format(stats[key], length) for stats, length in zipped])
             formatted_stats += frmt.format(total, 7)
             print("{:{}} {}".format(key, longest_key, formatted_stats))
+
+    elif args.command == "debug":
+        print(brag.get_session_template())
 
     elif args.command == "run":
         new_brag = get_text_from_editor(

@@ -14,6 +14,10 @@ To use a BRAGMaster, you need a BRAG file. The BRAG file is a simple markdown fi
 - [ ] Run a marathon
 - [ ] Make my company profitable
 
+## Recurring
+
+- [ ] Meditate daily
+
 ## 2016-02-06
 
 - [X] Run 20k on the weekend -- Did it in 2:06:12
