@@ -286,6 +286,10 @@ class User(object):
 
     def get_session(self, date):
         """Finds a session by date."""
+        if date.lower() == "goals":
+            return self.goals
+        elif date.lower() == "recurring":
+            return self.recurring
         for session in self.sessions:
             if date == session.date:
                 return session
@@ -369,7 +373,7 @@ class Brag(object):
             str
         """
         result = ""
-        for user in self.users:
+        for user in self.active_users:
             session = user.get_session(date)
             if session:
                 result += "# {}\n\n{}\n\n".format(user.name, session.to_string(title=title, simple=simple))
@@ -483,6 +487,7 @@ if __name__ == "__main__":
         'stats': "Displays some statistics",
         'users': "Displays all users and their email addresses",
         'run': "Runs a brag session by opening the editor with a template",
+        'goals': "Displays all user's goals",
         'debug': "Random effects"
     }
 
@@ -514,6 +519,11 @@ if __name__ == "__main__":
     if args.command == "current":
         print(brag.session_to_string(
             brag.current_session,
+            title=False, simple=True)
+        )
+    if args.command == "goals":
+        print(brag.session_to_string(
+            "Goals",
             title=False, simple=True)
         )
     if args.command == "last":
