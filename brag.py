@@ -286,9 +286,9 @@ class User(object):
 
     def get_session(self, date):
         """Finds a session by date."""
-        if date.lower() == "goals":
+        if isinstance(date, str) and date.lower() == "goals":
             return self.goals
-        elif date.lower() == "recurring":
+        elif isinstance(date, str) and date.lower() == "recurring":
             return self.recurring
         for session in self.sessions:
             if date == session.date:
@@ -296,7 +296,10 @@ class User(object):
 
     def name_and_email(self):
         """Returns a string representation of the user's name and email (if available)"""
-        return self.name if not self.email else "{} <{}>".format(self.name, self.email)
+        result = self.name if not self.email else "{} <{}>".format(self.name, self.email)
+        if not self.active:
+            result += " (inactive)"
+        return result
 
     def to_string(self):
         """Returns a Markdown representation of all of the user's sessions."""
