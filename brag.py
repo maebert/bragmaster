@@ -388,7 +388,7 @@ class Brag(object):
         Returns:
             str
         """
-        sep = "\n\n" + "-" * 60 + "\n\n"
+        sep = "\n\n" + "-" * 45 + "\n\n"
         return sep.join([u.to_string() for u in self.users])
 
     def get_session_template(self):
