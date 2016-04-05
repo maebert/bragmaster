@@ -400,11 +400,11 @@ class Brag(object):
             str
         """
         result = ""
-        last_session = max(self.get_session_dates())
         for user in self.active_users:
             result += "# {}\n\n".format(user.name)
             result += user.goals.get_unfinished().to_string(simple=True) + "\n\n"
-            result += str(user.get_session(last_session)) + "\n\n"
+            if user.sessions:
+                result += str(sorted(user.sessions)[-1]) + "\n\n"
             result += "## {:%Y-%m-%d}\n\n".format(datetime.now())
             if user.recurring:
                 result += user.recurring.to_string(simple=True, title=False) + "\n"
