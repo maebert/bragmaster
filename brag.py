@@ -382,6 +382,16 @@ class Brag(object):
                 result += "# {}\n\n{}\n\n".format(user.name, session.to_string(title=title, simple=simple))
         return result.strip()
 
+    def get_current_tasks(self):
+        """
+        Returns all active users and their last session.
+
+        Returns:
+            generator -- yields (user, session) pairs
+        """
+        for user in self.active_users:
+            yield user, user.sessions[-1]
+
     def to_string(self):
         """Returns a markdown file for this Brag
 
@@ -520,10 +530,13 @@ if __name__ == "__main__":
                 print("\033[93mUser '{}' not found.\033[0m".format(username))
 
     if args.command == "current":
-        print(brag.session_to_string(
-            brag.current_session,
-            title=False, simple=True)
-        )
+        sessions = brag.get_session_dates()
+        print("Session {}".format(len(sessions)))
+        print("----------")
+        for user, session in brag.get_current_tasks():
+            date = " ({:%d/%m})".format(session.date) if sessions[-1] != session.date else ""
+            print("* {}: {}{}".format(user.name, ", ".join(t.name for t in session.tasks), date))
+
     if args.command == "goals":
         print(brag.session_to_string(
             "Goals",
